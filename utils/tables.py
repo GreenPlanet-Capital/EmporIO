@@ -1,0 +1,1 @@
+OPPORTUNITY_TABLE = "opportunity"
