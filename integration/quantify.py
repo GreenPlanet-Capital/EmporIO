@@ -4,7 +4,6 @@ from Quantify.strats.macd_rsi_boll import Macd_Rsi_Boll
 from Quantify.constants.timeframe import TimeFrame
 from Quantify.positions.opportunity import Opportunity
 import pandas as pd
-
 from utils.constants import DEFAULT_LOOKBACK
 
 

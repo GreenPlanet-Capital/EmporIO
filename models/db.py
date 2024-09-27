@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel
+from typing import List
+from pydantic import BaseModel, Field
 
 
 class OpportunityDB(BaseModel):
@@ -10,3 +11,21 @@ class OpportunityDB(BaseModel):
     order_type: int
     default_price: float
     metadata: dict
+
+
+class OrderDB(BaseModel):
+    order_type: int
+    default_price: float
+    quantity: int
+
+
+class PositionDB(BaseModel):
+    ticker: str
+    exchangeName: str
+    orders: List[OrderDB] = Field(default_factory=list)
+
+
+class PortfolioDB(BaseModel):
+    history: List[float] = Field(default_factory=list)
+    buy_power: float
+    

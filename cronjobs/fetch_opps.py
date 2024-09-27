@@ -31,7 +31,7 @@ class FetchOpps:
             dict_stock_df=dict_stock_df,
             exchange_name=DEFAULT_EXCHANGE,
             num_recommendations=1e9,
-            percent_long=0.5,
+            percent_long=1,  # RH doesn't support shorting
         )
 
         opps = quant_integrator.get_positions()
