@@ -4,3 +4,4 @@ setuptools==65.6.3
 uvicorn==0.30.6
 pandas==1.5.3
 pandas-market-calendars==4.1.4
+requests==2.31.0

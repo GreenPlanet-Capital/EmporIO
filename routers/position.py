@@ -3,22 +3,38 @@ from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
 from database.json_db import JsonDB
 from models.position import Position
-from models.db import OpportunityDB, OrderDB, PositionDB
+from models.db import OpportunityDB, OrderDB, PortfolioDB, PositionDB
 from utils.constants import DEFAULT_EXCHANGE, JSON_DB_PATH
-from utils.tables import POSITION_TABLE
+from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
 
 position_router = APIRouter(prefix="/position")
 db = JsonDB(JSON_DB_PATH)
 
 
+@position_router.get("/clean")
+async def clean_positions():
+    db.write_to_db([], POSITION_TABLE)
+    return {"message": "Positions cleaned"}
+
+
 @position_router.post("/enter")
 async def enter_pos(enter_pos: Position):
+    stock_price = get_stock_price(enter_pos.ticker)
+    portfolio: PortfolioDB = db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
+
+    if portfolio.buy_power < stock_price * enter_pos.quantity:
+        raise HTTPException(
+            status_code=400, detail="Not enough buy power to enter position"
+        )
+
     order = OrderDB(
         order_type=enter_pos.order_type,
         quantity=enter_pos.quantity,
-        default_price=get_stock_price(enter_pos.ticker),
+        default_price=stock_price,
     )
     positions, current_pos = get_pos(enter_pos.ticker)
+
+    portfolio.buy_power -= stock_price * enter_pos.quantity
 
     if current_pos == -1:
         positions.append(
@@ -29,13 +45,15 @@ async def enter_pos(enter_pos: Position):
     else:
         positions[current_pos].orders.append(order)
 
-    db.write_to_db(POSITION_TABLE, jsonable_encoder(positions))
+    db.write_to_db([jsonable_encoder(portfolio)], PORTFOLIO_TABLE)
+    db.write_to_db(jsonable_encoder(positions), POSITION_TABLE)
     return {"message": "Position entered"}
 
 
 @position_router.post("/exit")
 async def exit_pos(exit_pos: Position):
     positions, current_pos = get_pos(exit_pos.ticker)
+    portfolio: PortfolioDB = db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
 
     if current_pos != -1:
         # subtract quantity from the order where the order type is the same
@@ -57,7 +75,9 @@ async def exit_pos(exit_pos: Position):
         positions[current_pos].orders = [
             order for order in positions[current_pos].orders if order.quantity > 0
         ]
-        db.write_to_db(POSITION_TABLE, jsonable_encoder(positions))
+        portfolio.buy_power += exit_pos.quantity * get_stock_price(exit_pos.ticker)
+        db.write_to_db([jsonable_encoder(portfolio)], PORTFOLIO_TABLE)
+        db.write_to_db(jsonable_encoder(positions), POSITION_TABLE)
     else:
         raise HTTPException(status_code=400, detail="Position not found")
 

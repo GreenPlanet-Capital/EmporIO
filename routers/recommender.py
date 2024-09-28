@@ -21,5 +21,5 @@ def convert_to_recom(opp: OpportunityDB) -> Recommendation:
     return Recommendation(
         ticker=opp.ticker,
         score=opp.metadata.get("score", -1),
-        order_type="buy" if opp.order_type == 1 else "sell",
+        order_type=opp.order_type,
     )

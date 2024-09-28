@@ -26,6 +26,6 @@ class PositionDB(BaseModel):
 
 
 class PortfolioDB(BaseModel):
+    value: float = 0.0
     history: List[float] = Field(default_factory=list)
     buy_power: float
-    

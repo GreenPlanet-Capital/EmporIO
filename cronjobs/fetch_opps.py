@@ -46,7 +46,7 @@ class FetchOpps:
         today = datetime.today()
 
         start_timestamp = today - pd.tseries.offsets.CustomBusinessDay(
-            n=DEFAULT_LOOKBACK + 5, calendar=cal  # Some buffer
+            n=DEFAULT_LOOKBACK + 10, calendar=cal  # Some buffer
         )
         end_timestamp = today - timedelta(days=1)  # Alpaca data is delayed by 1 day
 

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers.recommender import recommender_router
 from routers.position import position_router
 from routers.portfolio import portfolio_router
+from routers.stock import stock_router
 import uvicorn
 
 
@@ -23,6 +24,7 @@ app.add_middleware(
 app.include_router(recommender_router)
 app.include_router(position_router)
 app.include_router(portfolio_router)
+app.include_router(stock_router)
 
 
 @app.get("/")
