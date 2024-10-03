@@ -72,11 +72,9 @@ def acquire_pos(amt_per_pos: int):
     return acq_pos
 
 
-print(clean_pos())
+# print(clean_pos())
 
-print(set_portfolio(Portfolio(cash=1000)))
-
-print(get_portfolio())
+# print(set_portfolio(Portfolio(cash=1000)))
 
 print(acquire_pos(amt_per_pos=100))
 

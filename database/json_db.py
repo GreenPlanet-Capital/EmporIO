@@ -12,7 +12,7 @@ class JsonDB(BaseDB):
 
     def write_to_db(self, data: List[BaseModel], table: str) -> None:
         with open(self.get_path(table), "w") as f:
-            parsed = json.dumps(jsonable_encoder(data))
+            parsed = json.dumps(jsonable_encoder(data), indent=4)
             f.write(parsed)
 
     def read_from_db(self, base_model: BaseModel, table: str) -> List[BaseModel]:

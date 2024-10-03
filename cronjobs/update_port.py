@@ -1,7 +1,8 @@
 from typing import Dict, List, Union
 from database.base_db import BaseDB
 from models.db import PortfolioDB, PositionDB, OpportunityDB
-from utils.tables import OPPORTUNITY_TABLE, PORTFOLIO_TABLE, POSITION_TABLE
+from DataManager.datamgr.data_extractor import DataExtractor
+from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
 
 
 class UpdatePort:
@@ -17,20 +18,22 @@ class UpdatePort:
         positions: List[PositionDB] = self.db.read_from_db(PositionDB, POSITION_TABLE)
         pos_dt: Dict[str, PositionDB] = self.convert_to_ticker_dt(positions)
 
-        opportunities: List[OpportunityDB] = self.db.read_from_db(
-            OpportunityDB, OPPORTUNITY_TABLE
-        )
-        opp_dt: Dict[str, OpportunityDB] = self.convert_to_ticker_dt(opportunities)
+        prices_dt = self.get_cur_stock_prices(list(pos_dt.keys()))
 
         for ticker, pos in pos_dt.items():
-            opp = opp_dt.get(ticker, None)
+            cur_price = prices_dt.get(ticker, None)
 
             for order in pos.orders:
                 init_price = order.default_price
-                cur_price = init_price if opp is None else opp.default_price
+                cur_price = init_price if cur_price is None else cur_price
                 portfolio.value += order.quantity * cur_price
 
         self.db.write_to_db([portfolio], PORTFOLIO_TABLE)
+
+    def get_cur_stock_prices(self, tickers: List[str]) -> Dict[str, float]:
+        data_extractor = DataExtractor()
+        stocks_dt = data_extractor.getListLiveAlpaca(tickers)
+        return {ticker: stock["c"] for ticker, stock in stocks_dt.items()}
 
     def convert_to_ticker_dt(
         self, ll: List[Union[OpportunityDB, PositionDB]]
