@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 from pydantic import BaseModel, Field
 
 
@@ -16,7 +16,7 @@ class OpportunityDB(BaseModel):
 class OrderDB(BaseModel):
     order_type: int
     default_price: float
-    quantity: int
+    quantity: float
 
 
 class PositionDB(BaseModel):
@@ -27,5 +27,5 @@ class PositionDB(BaseModel):
 
 class PortfolioDB(BaseModel):
     value: float = 0.0
-    history: List[float] = Field(default_factory=list)
+    history: List[Tuple[str, float]] = Field(default_factory=list)
     buy_power: float

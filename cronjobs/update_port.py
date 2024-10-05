@@ -1,8 +1,9 @@
 from typing import Dict, List, Union
 from database.base_db import BaseDB
 from models.db import PortfolioDB, PositionDB, OpportunityDB
-from DataManager.datamgr.data_extractor import DataExtractor
+from utils.funcs import get_cur_stock_prices
 from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
+from datetime import datetime
 
 
 class UpdatePort:
@@ -10,15 +11,22 @@ class UpdatePort:
         self.db = db
 
     def execute(self) -> None:
+
         print("Updating portfolio")
 
         portfolio: PortfolioDB = self.db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
+
         portfolio.value = portfolio.buy_power
 
         positions: List[PositionDB] = self.db.read_from_db(PositionDB, POSITION_TABLE)
+
+        if not positions:
+            print("No positions to update")
+            return
+
         pos_dt: Dict[str, PositionDB] = self.convert_to_ticker_dt(positions)
 
-        prices_dt = self.get_cur_stock_prices(list(pos_dt.keys()))
+        prices_dt = get_cur_stock_prices(list(pos_dt.keys()))
 
         for ticker, pos in pos_dt.items():
             cur_price = prices_dt.get(ticker, None)
@@ -28,14 +36,18 @@ class UpdatePort:
                 cur_price = init_price if cur_price is None else cur_price
                 portfolio.value += order.quantity * cur_price
 
-        self.db.write_to_db([portfolio], PORTFOLIO_TABLE)
+        last_hist = portfolio.history[-1] if portfolio.history else None
+        if last_hist is None or last_hist[0] != self.get_cur_date():
+            portfolio.history.append((self.get_cur_date(), portfolio.value))
+        else:
+            portfolio.history[-1] = (self.get_cur_date(), portfolio.value)
 
-    def get_cur_stock_prices(self, tickers: List[str]) -> Dict[str, float]:
-        data_extractor = DataExtractor()
-        stocks_dt = data_extractor.getListLiveAlpaca(tickers)
-        return {ticker: stock["c"] for ticker, stock in stocks_dt.items()}
+        self.db.write_to_db([portfolio], PORTFOLIO_TABLE)
 
     def convert_to_ticker_dt(
         self, ll: List[Union[OpportunityDB, PositionDB]]
     ) -> Dict[str, Union[OpportunityDB, PositionDB]]:
         return {x.ticker: x for x in ll}
+
+    def get_cur_date(self):
+        return datetime.now().strftime("%Y-%m-%d")

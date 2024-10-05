@@ -3,13 +3,17 @@ from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
 from database.json_db import JsonDB
 from models.position import Position
-from models.db import OpportunityDB, OrderDB, PortfolioDB, PositionDB
+from models.db import OrderDB, PortfolioDB, PositionDB
 from utils.constants import DEFAULT_EXCHANGE, JSON_DB_PATH
+from utils.funcs import get_cur_stock_prices
 from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
 
 position_router = APIRouter(prefix="/position")
 db = JsonDB(JSON_DB_PATH)
 
+@position_router.get("")
+async def get_positions():
+    return jsonable_encoder(db.read_from_db(PositionDB, POSITION_TABLE))    
 
 @position_router.get("/clean")
 async def clean_positions():
@@ -19,10 +23,10 @@ async def clean_positions():
 
 @position_router.post("/enter")
 async def enter_pos(enter_pos: Position):
-    stock_price = get_stock_price(enter_pos.ticker)
+    cur_price = get_cur_stock_prices(enter_pos.ticker).get(enter_pos.ticker, 0)
     portfolio: PortfolioDB = db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
 
-    if portfolio.buy_power < stock_price * enter_pos.quantity:
+    if portfolio.buy_power < cur_price * enter_pos.quantity:
         raise HTTPException(
             status_code=400, detail="Not enough buy power to enter position"
         )
@@ -30,11 +34,10 @@ async def enter_pos(enter_pos: Position):
     order = OrderDB(
         order_type=enter_pos.order_type,
         quantity=enter_pos.quantity,
-        default_price=stock_price,
+        default_price=cur_price,
     )
     positions, current_pos = get_pos(enter_pos.ticker)
-
-    portfolio.buy_power -= stock_price * enter_pos.quantity
+    portfolio.buy_power -= cur_price * enter_pos.quantity
 
     if current_pos == -1:
         positions.append(
@@ -75,21 +78,14 @@ async def exit_pos(exit_pos: Position):
         positions[current_pos].orders = [
             order for order in positions[current_pos].orders if order.quantity > 0
         ]
-        portfolio.buy_power += exit_pos.quantity * get_stock_price(exit_pos.ticker)
+        cur_price = get_cur_stock_prices(exit_pos.ticker).get(exit_pos.ticker, 0)
+        portfolio.buy_power += exit_pos.quantity * cur_price
         db.write_to_db([jsonable_encoder(portfolio)], PORTFOLIO_TABLE)
         db.write_to_db(jsonable_encoder(positions), POSITION_TABLE)
     else:
         raise HTTPException(status_code=400, detail="Position not found")
 
     return {"message": "Position exited"}
-
-
-def get_stock_price(ticker: str) -> float:
-    opportunities: List[OpportunityDB] = db.read_from_db(OpportunityDB, "opportunity")
-    for opp in opportunities:
-        if opp.ticker == ticker:
-            return opp.default_price
-    return 0.0
 
 
 def get_pos(ticker: str) -> Tuple[List[PositionDB], int]:

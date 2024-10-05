@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from fastapi.encoders import jsonable_encoder
 import requests
 from models.db import OpportunityDB
@@ -8,6 +9,12 @@ from models.position import Position
 HOST = "http://localhost:8000"
 NUM_POS = 5
 LIMIT = 100
+
+
+@dataclass
+class Stock:
+    ticker: str
+    close: float
 
 
 def set_portfolio(portfolio: Portfolio):
@@ -32,7 +39,7 @@ def get_recom_positions():
 
 def get_stock(ticker: str):
     response = requests.get(f"{HOST}/stock?ticker={ticker}")
-    return OpportunityDB(**response.json()) if response.status_code == 200 else None
+    return Stock(**response.json()) if response.status_code == 200 else None
 
 
 def clean_pos():
@@ -51,16 +58,13 @@ def acquire_pos(amt_per_pos: int):
 
         stock = get_stock(pos.ticker)
 
-        if stock is None:
-            continue
-
         resp = requests.post(
             f"{HOST}/position/enter",
             json=jsonable_encoder(
                 Position(
                     ticker=pos.ticker,
                     order_type=pos.order_type,
-                    quantity=amt_per_pos // stock.default_price,
+                    quantity=amt_per_pos / stock.close,
                 )
             ),
         )
@@ -72,9 +76,9 @@ def acquire_pos(amt_per_pos: int):
     return acq_pos
 
 
-# print(clean_pos())
+print(clean_pos())
 
-# print(set_portfolio(Portfolio(cash=1000)))
+print(set_portfolio(Portfolio(cash=1000)))
 
 print(acquire_pos(amt_per_pos=100))
 

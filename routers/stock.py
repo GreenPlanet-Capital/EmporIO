@@ -4,18 +4,17 @@ from fastapi.encoders import jsonable_encoder
 from database.json_db import JsonDB
 from models.db import OpportunityDB
 from utils.constants import JSON_DB_PATH
+from utils.funcs import get_cur_stock_prices
 from utils.tables import OPPORTUNITY_TABLE
 
 stock_router = APIRouter(prefix="/stock")
-db = JsonDB(JSON_DB_PATH)
 
 
 @stock_router.get("")
 async def get_stock(ticker: str):
-    opps: List[OpportunityDB] = db.read_from_db(OpportunityDB, OPPORTUNITY_TABLE)
-    opp = next((x for x in opps if x.ticker == ticker), None)
+    price_dt = get_cur_stock_prices(ticker)
 
-    if opp is not None:
-        return jsonable_encoder(opp)
+    if price_dt:
+        return jsonable_encoder({"ticker": ticker, "close": price_dt[ticker]})
 
     raise HTTPException(status_code=404, detail="Stock not found")
