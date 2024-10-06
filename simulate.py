@@ -56,15 +56,13 @@ def acquire_pos(amt_per_pos: int):
         if num_acq >= NUM_POS:
             break
 
-        stock = get_stock(pos.ticker)
-
         resp = requests.post(
             f"{HOST}/position/enter",
             json=jsonable_encoder(
                 Position(
                     ticker=pos.ticker,
                     order_type=pos.order_type,
-                    quantity=amt_per_pos / stock.close,
+                    amount=amt_per_pos,
                 )
             ),
         )

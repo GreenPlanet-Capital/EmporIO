@@ -17,9 +17,11 @@ async def get_recommendations(limit: int):
     return jsonable_encoder(recomms)
 
 
+# TODO - Do not tighly couple OpportunityDB and Recommendation
 def convert_to_recom(opp: OpportunityDB) -> Recommendation:
     return Recommendation(
         ticker=opp.ticker,
         score=opp.metadata.get("score", -1),
         order_type=opp.order_type,
+        default_price=opp.default_price,
     )
