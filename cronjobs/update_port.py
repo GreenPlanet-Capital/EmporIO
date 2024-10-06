@@ -13,6 +13,7 @@ class UpdatePort:
     def execute(self) -> None:
 
         print("Updating portfolio")
+        # TODO: backfill portfolio values from start if any are missing
 
         portfolio: PortfolioDB = self.db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
 
