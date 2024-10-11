@@ -1,3 +1,4 @@
+from math import floor
 from typing import List, Tuple, Union
 from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -14,7 +15,17 @@ db = JsonDB(JSON_DB_PATH)
 
 @position_router.get("")
 async def get_positions():
-    return jsonable_encoder(db.read_from_db(PositionDB, POSITION_TABLE))
+    portfolio = jsonable_encoder(db.read_from_db(PositionDB, POSITION_TABLE))
+
+    for pos in portfolio:
+        # TODO: aggregate all orders to get the avg price
+        for order in pos["orders"]:
+            price_dt = get_cur_stock_prices(pos["ticker"])
+
+            order["avg_price"] = order["default_price"]
+            order["default_price"] = price_dt.get(pos["ticker"], 0)
+
+    return portfolio
 
 
 @position_router.get("/clean")
@@ -61,13 +72,15 @@ async def exit_position(exit_pos: Position):
     positions, current_pos = get_pos(exit_pos.ticker)
     portfolio: PortfolioDB = db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
     cur_price = get_cur_stock_prices(exit_pos.ticker).get(exit_pos.ticker, 0)
+    orig_amt = exit_pos.amount
 
     if current_pos != -1:
         # subtract quantity from the order where the order type is the same
         for order in positions[current_pos].orders:
             if exit_pos.amount == 0:
                 break
-            exit_pos_quantity = exit_pos.amount / order.default_price
+
+            exit_pos_quantity = exit_pos.amount / cur_price
             if order.order_type == exit_pos.order_type:
                 negate = min(order.quantity, exit_pos_quantity)
                 order.quantity -= negate
@@ -77,12 +90,22 @@ async def exit_position(exit_pos: Position):
             raise HTTPException(
                 status_code=400, detail="Not holding enough quantity to exit"
             )
+        elif exit_pos.amount < 0:
+            raise HTTPException(
+                status_code=400, detail="Something went wrong with exiting position"
+            )
 
         # remove the order if the quantity is 0
         positions[current_pos].orders = [
-            order for order in positions[current_pos].orders if order.quantity > 0
+            order
+            for order in positions[current_pos].orders
+            if floor(order.quantity) > 0
         ]
-        portfolio.buy_power += exit_pos.amount
+
+        if len(positions[current_pos].orders) == 0:
+            positions.pop(current_pos)
+
+        portfolio.buy_power += orig_amt
         db.write_to_db([jsonable_encoder(portfolio)], PORTFOLIO_TABLE)
         db.write_to_db(jsonable_encoder(positions), POSITION_TABLE)
     else:

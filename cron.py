@@ -5,8 +5,8 @@ from cronjobs.update_port import UpdatePort
 
 def run():
     db = JsonDB("storage")
-    # f_opps = FetchOpps(db)
-    # f_opps.execute()
+    f_opps = FetchOpps(db)
+    f_opps.execute()
     u_port = UpdatePort(db)
     u_port.execute()
 

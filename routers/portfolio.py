@@ -23,7 +23,7 @@ async def get_portfolio():
     )
     port_init_v = portfolio.history[0][1]
     snp_portfolio_prices = [
-        round(port_init_v * (snp_p / snp_prices[0]), 2) for snp_p in snp_prices
+        port_init_v * (snp_p / snp_prices[0]) for snp_p in snp_prices
     ]
 
     ret = jsonable_encoder(portfolio)
