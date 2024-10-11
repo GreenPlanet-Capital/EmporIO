@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from fastapi.encoders import jsonable_encoder
 import requests
-from models.db import OpportunityDB
 from models.portfolio import Portfolio
 from models.recommender import Recommendation
 from models.position import Position

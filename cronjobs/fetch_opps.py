@@ -1,19 +1,20 @@
 from typing import Tuple
-from database.base_db import BaseDB
+
+from sqlmodel import delete
+from database.sql_db import SqlDB
 from integration.datamgr import DataMgrIntegrator
 from integration.quantify import QuantifyIntegrator
 from datetime import datetime, timedelta
 from Quantify.positions.opportunity import Opportunity
 from models.db import OpportunityDB
 from utils.constants import DEFAULT_EXCHANGE, DEFAULT_LOOKBACK
+from DataManager.utils.timehandler import TimeHandler
 import pandas_market_calendars as mcal
 import pandas as pd
 
-from utils.tables import OPPORTUNITY_TABLE
-
 
 class FetchOpps:
-    def __init__(self, db: BaseDB):
+    def __init__(self, db: SqlDB):
         self.db = db
 
     def execute(self) -> None:
@@ -39,7 +40,12 @@ class FetchOpps:
 
         print("Opportunities fetched")
 
-        self.db.write_to_db(opps_db, OPPORTUNITY_TABLE)
+        session = next(self.db.get_session())
+        session.exec(delete(OpportunityDB))
+        session.add_all(opps_db)
+        session.commit()
+
+        print("Opportunities saved")
 
     def get_dates(self) -> Tuple[datetime, datetime]:
         cal = mcal.get_calendar(DEFAULT_EXCHANGE)
@@ -53,4 +59,12 @@ class FetchOpps:
         return start_timestamp, end_timestamp
 
     def opp_to_db(self, opp: Opportunity) -> OpportunityDB:
-        return OpportunityDB(**vars(opp))
+        return OpportunityDB(
+            strategy_id=opp.strategy_id,
+            ticker=opp.ticker,
+            exchangeName=opp.exchangeName,
+            timestamp=TimeHandler.get_alpaca_string_from_datetime(opp.timestamp),
+            order_type=opp.order_type,
+            default_price=opp.default_price,
+            metadata_score=opp.metadata["score"],
+        )

@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from database.base_db import BaseDB
 
 
-# TODO: Move away from JSON to a more robust database
 class JsonDB(BaseDB):
     def __init__(self, db_path: str):
         self.db_path = db_path

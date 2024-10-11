@@ -5,3 +5,7 @@ uvicorn==0.30.6
 pandas==1.5.3
 pandas-market-calendars==4.1.4
 requests==2.31.0
+fastapi_login==1.10.2
+passlib==1.7.4
+sqlmodel==0.0.22
+pydantic[email]==2.9.2

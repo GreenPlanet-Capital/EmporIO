@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Dict, List
+from plotly.graph_objs import Figure
 import pandas as pd
 from DataManager.datamgr.data_extractor import DataExtractor
 from alpaca_trade_api.rest import TimeFrame as AlpacaTimeFrame
@@ -19,6 +20,9 @@ def get_cur_stock_prices(tickers: List[str]) -> Dict[str, float]:
 
 
 def get_stock_price_btwn(ticker: str, list_dates: List[str]) -> List[float]:
+    if len(list_dates) < 2:
+        raise ValueError("Need at.to_json() least 2 dates to interpolate")
+
     data_extractor = DataExtractor()
     stock_dt = data_extractor.getOneHistoricalAlpaca(
         ticker, list_dates[0], list_dates[-2], AlpacaTimeFrame.Day
@@ -61,7 +65,7 @@ def add_dummy_row(stock_dt: pd.DataFrame, pos_dt: str) -> pd.DataFrame:
     return stock_dt
 
 
-def create_stock_graph(ticker: str) -> None:
+def create_stock_graph(ticker: str) -> Figure:
     data_extractor = DataExtractor()
     now = datetime.now() - timedelta(days=1)  # Alpaca data is delayed by 1 day
     dt_start = (now - timedelta(days=DEFAULT_LOOKBACK)).strftime("%Y-%m-%d")

@@ -1,11 +1,6 @@
-from typing import List
 from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
-from database.json_db import JsonDB
-from models.db import OpportunityDB
-from utils.constants import JSON_DB_PATH
 from utils.funcs import create_stock_graph, get_cur_stock_prices
-from utils.tables import OPPORTUNITY_TABLE
 
 stock_router = APIRouter(prefix="/stock")
 

@@ -2,42 +2,46 @@ from math import floor
 from typing import List, Tuple, Union
 from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
-from database.json_db import JsonDB
+from sqlmodel import delete, select, update
 from models.position import Position
 from models.db import OrderDB, PortfolioDB, PositionDB
-from utils.constants import DEFAULT_EXCHANGE, JSON_DB_PATH
+from utils.constants import DEFAULT_EXCHANGE
 from utils.funcs import get_cur_stock_prices
 from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
+from utils.db_conn import SessionDep, AuthDep, add_entity
 
 position_router = APIRouter(prefix="/position")
-db = JsonDB(JSON_DB_PATH)
 
 
 @position_router.get("")
-async def get_positions():
-    portfolio = jsonable_encoder(db.read_from_db(PositionDB, POSITION_TABLE))
+async def get_positions(session: SessionDep, user: AuthDep):
+    positions = session.exec(
+        select(PositionDB).where(PositionDB.email_address == user.email_address)
+    ).all()
 
-    for pos in portfolio:
+    for pos in positions:
+        pos.orders = [OrderDB(**order) for order in pos.orders]
         # TODO: aggregate all orders to get the avg price
-        for order in pos["orders"]:
-            price_dt = get_cur_stock_prices(pos["ticker"])
+        for order in pos.orders:
+            price_dt = get_cur_stock_prices(pos.ticker)
+            order.default_price = price_dt.get(pos.ticker, 0)
 
-            order["avg_price"] = order["default_price"]
-            order["default_price"] = price_dt.get(pos["ticker"], 0)
-
-    return portfolio
+    return jsonable_encoder(positions)
 
 
 @position_router.get("/clean")
-async def clean_positions():
-    db.write_to_db([], POSITION_TABLE)
+async def clean_positions(session: SessionDep, user: AuthDep):
+    session.exec(
+        delete(PositionDB).where(PositionDB.email_address == user.email_address)
+    )
+    session.commit()
     return {"message": "Positions cleaned"}
 
 
 @position_router.post("/enter")
-async def enter_position(enter_pos: Position):
+async def enter_position(enter_pos: Position, session: SessionDep, user: AuthDep):
     cur_price = get_cur_stock_prices(enter_pos.ticker).get(enter_pos.ticker, 0)
-    portfolio: PortfolioDB = db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
+    portfolio: PortfolioDB = session.get(PortfolioDB, user.email_address)
 
     if portfolio.buy_power < enter_pos.amount:
         raise HTTPException(
@@ -49,30 +53,50 @@ async def enter_position(enter_pos: Position):
         order_type=enter_pos.order_type,
         quantity=enter_pos_quantity,
         default_price=cur_price,
+        avg_price=cur_price,
     )
-    positions, current_pos = get_pos(enter_pos.ticker)
+    positions, cur_pos = get_pos(session, user.email_address, enter_pos.ticker)
     portfolio.buy_power -= enter_pos.amount
 
-    if current_pos == -1:
-        positions.append(
-            PositionDB(
-                ticker=enter_pos.ticker, exchangeName=DEFAULT_EXCHANGE, orders=[order]
-            )
+    if cur_pos == -1:
+        new_pos = PositionDB(
+            ticker=enter_pos.ticker,
+            exchangeName=DEFAULT_EXCHANGE,
+            orders=jsonable_encoder([order]),
+            email_address=user.email_address,
         )
+        add_entity(session, new_pos)
     else:
-        positions[current_pos].orders.append(order)
+        pos = positions[cur_pos]
+        pos.orders.append(order)
 
-    db.write_to_db([jsonable_encoder(portfolio)], PORTFOLIO_TABLE)
-    db.write_to_db(jsonable_encoder(positions), POSITION_TABLE)
+        session.exec(
+            update(PositionDB)
+            .where(PositionDB.email_address == user.email_address)
+            .values(orders=jsonable_encoder(pos.orders))
+        )
+
+    session.exec(
+        update(PortfolioDB)
+        .where(PortfolioDB.email_address == user.email_address)
+        .values(buy_power=portfolio.buy_power)
+    )
+    session.commit()
+    session.refresh(portfolio)
+
     return {"message": "Position entered"}
 
 
 @position_router.post("/exit")
-async def exit_position(exit_pos: Position):
-    positions, current_pos = get_pos(exit_pos.ticker)
-    portfolio: PortfolioDB = db.read_from_db(PortfolioDB, PORTFOLIO_TABLE)[0]
+async def exit_position(exit_pos: Position, session: SessionDep, user: AuthDep):
+    positions, current_pos = get_pos(session, user.email_address, exit_pos.ticker)
+    portfolio: PortfolioDB = session.get(PortfolioDB, user.email_address)
     cur_price = get_cur_stock_prices(exit_pos.ticker).get(exit_pos.ticker, 0)
     orig_amt = exit_pos.amount
+
+    positions[current_pos].orders = [
+        OrderDB(**order) for order in positions[current_pos].orders
+    ]
 
     if current_pos != -1:
         # subtract quantity from the order where the order type is the same
@@ -97,25 +121,54 @@ async def exit_position(exit_pos: Position):
 
         # remove the order if the quantity is 0
         positions[current_pos].orders = [
-            order
+            jsonable_encoder(order)
             for order in positions[current_pos].orders
             if floor(order.quantity) > 0
         ]
 
-        if len(positions[current_pos].orders) == 0:
-            positions.pop(current_pos)
-
         portfolio.buy_power += orig_amt
-        db.write_to_db([jsonable_encoder(portfolio)], PORTFOLIO_TABLE)
-        db.write_to_db(jsonable_encoder(positions), POSITION_TABLE)
+
+        session.exec(
+            update(PortfolioDB)
+            .where(PortfolioDB.email_address == user.email_address)
+            .values(buy_power=portfolio.buy_power)
+        )
+        pos_exists = True
+
+        if len(positions[current_pos].orders) == 0:
+            session.exec(
+                delete(PositionDB)
+                .where(PositionDB.email_address == user.email_address)
+                .where(PositionDB.ticker == exit_pos.ticker)
+            )
+            pos_exists = False
+        else:
+            print(positions[current_pos].orders)
+            session.exec(
+                update(PositionDB)
+                .where(PositionDB.email_address == user.email_address)
+                .where(PositionDB.ticker == exit_pos.ticker)
+                .values(orders=positions[current_pos].orders)
+            )
+
+        session.commit()
+        if pos_exists:
+            session.refresh(positions[current_pos])
+        session.refresh(portfolio)
     else:
         raise HTTPException(status_code=400, detail="Position not found")
 
     return {"message": "Position exited"}
 
 
-def get_pos(ticker: str) -> Tuple[List[PositionDB], int]:
-    positions: List[PositionDB] = db.read_from_db(PositionDB, POSITION_TABLE)
+def get_pos(
+    session: SessionDep, email_address: str, ticker: str
+) -> Tuple[List[PositionDB], int]:
+    positions = list(
+        session.exec(
+            select(PositionDB).where(PositionDB.email_address == email_address)
+        ).all()
+    )
     return positions, next(
         (i for i, pos in enumerate(positions) if pos.ticker == ticker), -1
     )
