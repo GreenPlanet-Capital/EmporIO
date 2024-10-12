@@ -9,3 +9,4 @@ fastapi_login==1.10.2
 passlib==1.7.4
 sqlmodel==0.0.22
 pydantic[email]==2.9.2
+psycopg2==2.9.9

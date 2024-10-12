@@ -2,14 +2,13 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 from plotly.graph_objs import Figure
 import pandas as pd
+import pytz
 from DataManager.datamgr.data_extractor import DataExtractor
 from alpaca_trade_api.rest import TimeFrame as AlpacaTimeFrame
 from DataManager.utils.timehandler import TimeHandler
 from Quantify.tools.portfolio_monitor import PortfolioMonitor
 from Quantify.strats.macd_rsi_boll import Macd_Rsi_Boll
 from Quantify.constants.timeframe import TimeFrame
-
-
 from utils.constants import DEFAULT_EXCHANGE, DEFAULT_LOOKBACK
 
 
@@ -67,7 +66,9 @@ def add_dummy_row(stock_dt: pd.DataFrame, pos_dt: str) -> pd.DataFrame:
 
 def create_stock_graph(ticker: str) -> Figure:
     data_extractor = DataExtractor()
-    now = datetime.now() - timedelta(days=1)  # Alpaca data is delayed by 1 day
+    now = datetime.now(tz=pytz.timezone("US/Eastern")) - timedelta(
+        days=1
+    )  # Alpaca data is delayed by 1 day
     dt_start = (now - timedelta(days=DEFAULT_LOOKBACK)).strftime("%Y-%m-%d")
     dt_now = now.strftime("%Y-%m-%d")
 

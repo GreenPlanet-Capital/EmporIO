@@ -1,16 +1,10 @@
-import os
-import json
-from typing import List
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import SQLModel, Session, create_engine
 from database.base_db import BaseDB
 
 
 class SqlDB(BaseDB):
     def __init__(self, db_path: str):
-        connect_args = {"check_same_thread": False}
-        self.engine = create_engine(db_path, echo=False, connect_args=connect_args)
+        self.engine = create_engine(db_path, echo=False)
         self.create_db_and_tables()
 
     def create_db_and_tables(self):

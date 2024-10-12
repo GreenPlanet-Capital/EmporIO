@@ -7,6 +7,10 @@ ENV PYTHONUNBUFFERED=1
 RUN apt update && apt install -y \
     libpq-dev \
     gcc \
+    g++ \
+    default-libmysqlclient-dev \
+    libpq-dev \
+    pkg-config \
     && apt clean
 RUN useradd -ms /bin/bash quant
 
@@ -26,7 +30,9 @@ RUN pip install --user -e DataManager
 COPY --chown=quant:quant ../Quantify Quantify
 RUN pip install --user -e Quantify
 
-COPY --chown=quant:quant EmporIO .
+RUN pip install --force-reinstall numpy==1.26.4
+
+COPY --chown=quant:quant EmporIO ./EmporIO
 
 WORKDIR /home/quant/code/EmporIO
 
