@@ -1,5 +1,6 @@
 from typing import Tuple
 
+import pytz
 from sqlmodel import delete
 from database.sql_db import SqlDB
 from integration.datamgr import DataMgrIntegrator
@@ -49,7 +50,9 @@ class FetchOpps:
 
     def get_dates(self) -> Tuple[datetime, datetime]:
         cal = mcal.get_calendar(DEFAULT_EXCHANGE)
-        today = datetime.today()
+        today = datetime.now(tz=pytz.timezone("US/Eastern")).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
 
         start_timestamp = today - pd.tseries.offsets.CustomBusinessDay(
             n=DEFAULT_LOOKBACK + 10, calendar=cal  # Some buffer

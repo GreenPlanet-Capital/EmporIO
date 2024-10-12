@@ -22,6 +22,6 @@ class DataMgrIntegrator:
             TimeHandler.get_string_from_datetime, [start_timestamp, end_timestamp]
         )
         dict_of_dfs = self.datamgr.get_stock_data(
-            start_dt, end_dt, api="Alpaca", fetch_data=True
+            start_dt, end_dt, api="Alpaca", fetch_data=False
         )
         return self.datamgr.list_of_symbols, dict_of_dfs

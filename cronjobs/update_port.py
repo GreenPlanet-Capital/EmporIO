@@ -21,7 +21,6 @@ class UpdatePort:
         # TODO: backfill portfolio values from start if any are missing
 
         portfolios: List[PortfolioDB] = session.exec(select(PortfolioDB)).all()
-        print(portfolios)
 
         for portfolio in portfolios:
             portfolio.value = portfolio.buy_power

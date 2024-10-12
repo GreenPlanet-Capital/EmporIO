@@ -8,7 +8,6 @@ from utils.constants import SQL_DB_PATH
 from typing import Annotated
 from sqlmodel import SQLModel
 
-
 global_db = SqlDB(SQL_DB_PATH)
 SessionDep = Annotated[Session, Depends(global_db.get_session)]
 
