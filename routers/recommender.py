@@ -22,6 +22,6 @@ def convert_to_recom(opp: OpportunityDB) -> Recommendation:
     return Recommendation(
         ticker=opp.ticker,
         score=opp.metadata_score,
-        order_type=int.from_bytes(opp.order_type, byteorder="little"),
+        order_type=opp.order_type,
         default_price=opp.default_price,
     )

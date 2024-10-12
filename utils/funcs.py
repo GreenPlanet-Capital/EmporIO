@@ -20,7 +20,7 @@ def get_cur_stock_prices(tickers: List[str]) -> Dict[str, float]:
 
 def get_stock_price_btwn(ticker: str, list_dates: List[str]) -> List[float]:
     if len(list_dates) < 2:
-        raise ValueError("Need at.to_json() least 2 dates to interpolate")
+        raise ValueError("Need at least 2 dates to interpolate")
 
     data_extractor = DataExtractor()
     stock_dt = data_extractor.getOneHistoricalAlpaca(
