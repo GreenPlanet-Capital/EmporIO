@@ -12,7 +12,7 @@ origins = [
     "*",
 ]
 
-app = FastAPI(title="EmporIO", version="1.0")
+app = FastAPI(title="EmporIO", version="1.0", root_path="/api")
 
 app.add_middleware(
     CORSMiddleware,
