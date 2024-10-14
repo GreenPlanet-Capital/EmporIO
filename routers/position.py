@@ -47,6 +47,17 @@ async def clean_positions(session: SessionDep, user: AuthDep):
 
 @position_router.post("/enter")
 async def enter_position(enter_pos: Position, session: SessionDep, user: AuthDep):
+    if enter_pos.amount <= 0:
+        raise HTTPException(
+            status_code=400, detail="Amount must be greater than 0 to enter position"
+        )
+    elif enter_pos.order_type not in [0, 1]:
+        raise HTTPException(
+            status_code=400, detail="Order type must be 0 (buy) or 1 (sell)"
+        )
+    elif enter_pos.ticker == "":
+        raise HTTPException(status_code=400, detail="Ticker must not be empty")
+
     cur_price = get_cur_stock_prices(enter_pos.ticker).get(enter_pos.ticker, 0)
     portfolio: PortfolioDB = session.get(PortfolioDB, user.email_address)
 
@@ -96,6 +107,17 @@ async def enter_position(enter_pos: Position, session: SessionDep, user: AuthDep
 
 @position_router.post("/exit")
 async def exit_position(exit_pos: Position, session: SessionDep, user: AuthDep):
+    if exit_pos.amount <= 0:
+        raise HTTPException(
+            status_code=400, detail="Amount must be greater than 0 to exit position"
+        )
+    elif exit_pos.order_type not in [0, 1]:
+        raise HTTPException(
+            status_code=400, detail="Order type must be 0 (buy) or 1 (sell)"
+        )
+    elif exit_pos.ticker == "":
+        raise HTTPException(status_code=400, detail="Ticker must not be empty")
+
     positions, current_pos = get_pos(session, user.email_address, exit_pos.ticker)
     portfolio: PortfolioDB = session.get(PortfolioDB, user.email_address)
     cur_price = get_cur_stock_prices(exit_pos.ticker).get(exit_pos.ticker, 0)

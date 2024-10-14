@@ -64,7 +64,7 @@ def add_dummy_row(stock_dt: pd.DataFrame, pos_dt: str) -> pd.DataFrame:
     return stock_dt
 
 
-def create_stock_graph(ticker: str) -> Figure:
+def create_stock_graph(ticker: str, order_type: int) -> Figure:
     data_extractor = DataExtractor()
     now = datetime.now(tz=pytz.timezone("US/Eastern")) - timedelta(
         days=1
@@ -86,4 +86,6 @@ def create_stock_graph(ticker: str) -> Figure:
         lookback=DEFAULT_LOOKBACK,
     )
     p_mon = PortfolioMonitor(dict_df, strat, DEFAULT_EXCHANGE)
-    return p_mon.monitor_health(graph=True, print_debug=False, open_plot=False)
+    return p_mon.monitor_health(
+        graph=True, print_debug=False, open_plot=False, default_order_type=order_type
+    )

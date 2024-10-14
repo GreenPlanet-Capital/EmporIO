@@ -15,6 +15,9 @@ class DataMgrIntegrator:
             exchangeName=exchange_name, limit=limit, update_before=update_tickers
         )
 
+    def get_list_symbols(self) -> List[str]:
+        return self.datamgr._basket_of_symbols
+
     def get_data(
         self, start_timestamp: datetime, end_timestamp: datetime
     ) -> Tuple[List[str], Dict[str, pd.DataFrame]]:

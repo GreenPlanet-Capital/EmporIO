@@ -7,7 +7,7 @@ def check_pwd(pwd):
     if not re_for_pwd.match(pwd):
         raise ValueError(
             "Invalid password - must contain at least 1 letter and 1 number and"
-            "be at least 5 characters long"
+            " be at least 5 characters long"
         )
     return pwd
 
