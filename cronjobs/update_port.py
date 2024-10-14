@@ -32,7 +32,7 @@ class UpdatePort:
 
             if not positions:
                 print("No positions to update")
-                return
+                continue
 
             portfolio.history = [HistoryDB(**hist) for hist in portfolio.history]
             pos_dt: Dict[str, PositionDB] = self.convert_to_ticker_dt(positions)
