@@ -21,10 +21,17 @@ async def get_positions(session: SessionDep, user: AuthDep):
 
     for pos in positions:
         pos.orders = [OrderDB(**order) for order in pos.orders]
-        # TODO: aggregate all orders to get the avg price
+
+        # aggregate all orders to get the avg price
+        avg_price = 0
+
         for order in pos.orders:
             price_dt = get_cur_stock_prices(pos.ticker)
+            avg_price += order.default_price
             order.default_price = price_dt.get(pos.ticker, 0)
+
+        avg_price /= len(pos.orders)
+        pos.orders[0].avg_price = avg_price
 
     return jsonable_encoder(positions)
 

@@ -6,8 +6,8 @@ from sqlmodel import select, update
 from database.sql_db import SqlDB
 from models.db import HistoryDB, OrderDB, PortfolioDB, PositionDB, OpportunityDB
 from utils.funcs import get_cur_stock_prices
-from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
-from datetime import datetime
+from DataManager.utils.timehandler import TimeHandler
+from datetime import datetime, timedelta
 
 
 class UpdatePort:
@@ -18,7 +18,6 @@ class UpdatePort:
 
         print("Updating portfolio")
         session = next(self.db.get_session())
-        # TODO: backfill portfolio values from start if any are missing
 
         portfolios: List[PortfolioDB] = session.exec(select(PortfolioDB)).all()
 
@@ -49,15 +48,37 @@ class UpdatePort:
                     portfolio.value += order["quantity"] * cur_price
 
             last_hist = portfolio.history[-1] if portfolio.history else None
-            last_hist_entry = HistoryDB(
-                timestamp=self.get_cur_date(), value=portfolio.value
-            )
+            cur_dt_alp = self.get_cur_date()
+            last_hist_entry = HistoryDB(timestamp=cur_dt_alp, value=portfolio.value)
 
-            if last_hist is None or last_hist.timestamp != self.get_cur_date():
+            if last_hist is None or last_hist.timestamp != cur_dt_alp:
                 portfolio.history.append(last_hist_entry)
             else:
                 portfolio.history[-1] = last_hist_entry
 
+            # backfill portfolio values from start if any are missing
+            start_dt = TimeHandler.get_datetime_from_alpaca_string(
+                portfolio.history[0].timestamp
+            )
+            cur_dt = TimeHandler.get_datetime_from_alpaca_string(cur_dt_alp)
+            map_dt = {hist.timestamp: hist.value for hist in portfolio.history}
+            lst_exists = portfolio.history[0].value
+
+            for i in range((cur_dt - start_dt).days):
+                hist_dt = start_dt + timedelta(days=i)
+                hist_dt_alp = TimeHandler.get_alpaca_string_from_datetime(hist_dt)
+                if hist_dt_alp not in map_dt:
+                    # take neighboring values
+                    portfolio.history.append(
+                        HistoryDB(timestamp=hist_dt_alp, value=lst_exists)
+                    )
+                else:
+                    lst_exists = map_dt[hist_dt_alp]
+
+            portfolio.history = sorted(
+                portfolio.history,
+                key=lambda x: TimeHandler.get_datetime_from_alpaca_string(x.timestamp),
+            )
             portfolio.history = [jsonable_encoder(hist) for hist in portfolio.history]
 
             session.exec(

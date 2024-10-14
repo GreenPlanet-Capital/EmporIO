@@ -4,8 +4,8 @@ from cronjobs.update_port import UpdatePort
 
 
 def run():
-    f_opps = FetchOpps(global_db)
-    f_opps.execute()
+    # f_opps = FetchOpps(global_db)
+    # f_opps.execute()
     u_port = UpdatePort(global_db)
     u_port.execute()
 
