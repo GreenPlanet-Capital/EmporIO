@@ -91,6 +91,7 @@ async def enter_position(enter_pos: Position, session: SessionDep, user: AuthDep
         session.exec(
             update(PositionDB)
             .where(PositionDB.email_address == user.email_address)
+            .where(PositionDB.ticker == enter_pos.ticker)
             .values(orders=jsonable_encoder(pos.orders))
         )
 
@@ -172,7 +173,6 @@ async def exit_position(exit_pos: Position, session: SessionDep, user: AuthDep):
             )
             pos_exists = False
         else:
-            print(positions[current_pos].orders)
             session.exec(
                 update(PositionDB)
                 .where(PositionDB.email_address == user.email_address)
