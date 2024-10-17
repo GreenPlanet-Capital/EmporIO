@@ -10,6 +10,7 @@ from utils.funcs import get_cur_stock_prices
 from utils.tables import PORTFOLIO_TABLE, POSITION_TABLE
 from utils.db_conn import SessionDep, AuthDep, add_entity
 
+# TODO: off by one 1 cent error when enter/exit position due to float precision or rounding
 position_router = APIRouter(prefix="/position")
 
 
