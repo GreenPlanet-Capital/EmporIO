@@ -2,7 +2,7 @@ from typing import Dict, List, Union
 
 from fastapi.encoders import jsonable_encoder
 import pytz
-from sqlmodel import select, update
+from sqlmodel import Session, select, update
 from database.sql_db import SqlDB
 from models.db import HistoryDB, OrderDB, PortfolioDB, PositionDB, OpportunityDB
 from utils.funcs import get_cur_stock_prices
@@ -14,83 +14,99 @@ class UpdatePort:
     def __init__(self, db: SqlDB):
         self.db = db
 
-    def execute(self) -> None:
-
+    def execute(self, email_address: str | None) -> None:
         print("Updating portfolio")
         session = next(self.db.get_session())
 
-        portfolios: List[PortfolioDB] = session.exec(select(PortfolioDB)).all()
+        if email_address is not None:
+            portfolio: PortfolioDB = session.exec(
+                select(PortfolioDB).where(PortfolioDB.email_address == email_address)
+            ).first()
+            self.handle_portfolio(session, portfolio)
+        else:
+            portfolios: List[PortfolioDB] = session.exec(select(PortfolioDB)).all()
+            for portfolio in portfolios:
+                self.handle_portfolio(session, portfolio)
 
-        for portfolio in portfolios:
-            portfolio.value = portfolio.buy_power
+    def handle_portfolio(self, session: Session, portfolio: PortfolioDB):
+        portfolio.value = portfolio.buy_power
 
-            positions: List[PositionDB] = session.exec(
-                select(PositionDB).where(
-                    PositionDB.email_address == portfolio.email_address
+        positions: List[PositionDB] = session.exec(
+            select(PositionDB).where(
+                PositionDB.email_address == portfolio.email_address
+            )
+        ).all()
+
+        if not positions:
+            self.update_portfolio(session, portfolio)
+            print("No positions to update")
+            return
+
+        portfolio.history = [HistoryDB(**hist) for hist in portfolio.history]
+        pos_dt: Dict[str, PositionDB] = self.convert_to_ticker_dt(positions)
+
+        prices_dt = get_cur_stock_prices(list(pos_dt.keys()))
+
+        for ticker, pos in pos_dt.items():
+            cur_price = prices_dt.get(ticker, None)
+
+            for order in pos.orders:
+                init_price = order["default_price"]
+                cur_price = init_price if cur_price is None else cur_price
+                order_quantity = order["quantity"]
+                portfolio.value += order_quantity * (
+                    cur_price
+                    if order["order_type"] == 1
+                    else ((order_quantity * init_price) - (order_quantity * cur_price))
                 )
-            ).all()
 
-            if not positions:
-                print("No positions to update")
-                continue
+        last_hist = portfolio.history[-1] if portfolio.history else None
+        cur_dt_alp = self.get_cur_date()
+        last_hist_entry = HistoryDB(timestamp=cur_dt_alp, value=portfolio.value)
 
-            portfolio.history = [HistoryDB(**hist) for hist in portfolio.history]
-            pos_dt: Dict[str, PositionDB] = self.convert_to_ticker_dt(positions)
+        if last_hist is None or last_hist.timestamp != cur_dt_alp:
+            portfolio.history.append(last_hist_entry)
+        else:
+            portfolio.history[-1] = last_hist_entry
 
-            prices_dt = get_cur_stock_prices(list(pos_dt.keys()))
+        # backfill portfolio values from start if any are missing
+        start_dt = TimeHandler.get_datetime_from_alpaca_string(
+            portfolio.history[0].timestamp
+        )
+        cur_dt = TimeHandler.get_datetime_from_alpaca_string(cur_dt_alp)
+        map_dt = {hist.timestamp: hist.value for hist in portfolio.history}
+        lst_exists = portfolio.history[0].value
 
-            for ticker, pos in pos_dt.items():
-                cur_price = prices_dt.get(ticker, None)
-
-                for order in pos.orders:
-                    init_price = order["default_price"]
-                    cur_price = init_price if cur_price is None else cur_price
-                    portfolio.value += order["quantity"] * cur_price
-
-            last_hist = portfolio.history[-1] if portfolio.history else None
-            cur_dt_alp = self.get_cur_date()
-            last_hist_entry = HistoryDB(timestamp=cur_dt_alp, value=portfolio.value)
-
-            if last_hist is None or last_hist.timestamp != cur_dt_alp:
-                portfolio.history.append(last_hist_entry)
+        for i in range((cur_dt - start_dt).days):
+            hist_dt = start_dt + timedelta(days=i)
+            hist_dt_alp = TimeHandler.get_alpaca_string_from_datetime(hist_dt)
+            if hist_dt_alp not in map_dt:
+                # take neighboring values
+                portfolio.history.append(
+                    HistoryDB(timestamp=hist_dt_alp, value=lst_exists)
+                )
             else:
-                portfolio.history[-1] = last_hist_entry
+                lst_exists = map_dt[hist_dt_alp]
 
-            # backfill portfolio values from start if any are missing
-            start_dt = TimeHandler.get_datetime_from_alpaca_string(
-                portfolio.history[0].timestamp
+        portfolio.history = sorted(
+            portfolio.history,
+            key=lambda x: TimeHandler.get_datetime_from_alpaca_string(x.timestamp),
+        )
+        portfolio.history = [jsonable_encoder(hist) for hist in portfolio.history]
+
+        self.update_portfolio(session, portfolio)
+
+    def update_portfolio(self, session: Session, portfolio: PortfolioDB):
+        session.exec(
+            update(PortfolioDB)
+            .where(PortfolioDB.email_address == portfolio.email_address)
+            .values(
+                buy_power=portfolio.buy_power,
+                value=portfolio.value,
+                history=portfolio.history,
             )
-            cur_dt = TimeHandler.get_datetime_from_alpaca_string(cur_dt_alp)
-            map_dt = {hist.timestamp: hist.value for hist in portfolio.history}
-            lst_exists = portfolio.history[0].value
-
-            for i in range((cur_dt - start_dt).days):
-                hist_dt = start_dt + timedelta(days=i)
-                hist_dt_alp = TimeHandler.get_alpaca_string_from_datetime(hist_dt)
-                if hist_dt_alp not in map_dt:
-                    # take neighboring values
-                    portfolio.history.append(
-                        HistoryDB(timestamp=hist_dt_alp, value=lst_exists)
-                    )
-                else:
-                    lst_exists = map_dt[hist_dt_alp]
-
-            portfolio.history = sorted(
-                portfolio.history,
-                key=lambda x: TimeHandler.get_datetime_from_alpaca_string(x.timestamp),
-            )
-            portfolio.history = [jsonable_encoder(hist) for hist in portfolio.history]
-
-            session.exec(
-                update(PortfolioDB)
-                .where(PortfolioDB.email_address == portfolio.email_address)
-                .values(
-                    buy_power=portfolio.buy_power,
-                    value=portfolio.value,
-                    history=portfolio.history,
-                )
-            )
-            session.commit()
+        )
+        session.commit()
 
     def convert_to_ticker_dt(
         self, ll: List[Union[OpportunityDB, PositionDB]]

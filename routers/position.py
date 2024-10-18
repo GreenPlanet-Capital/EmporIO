@@ -42,6 +42,11 @@ async def clean_positions(session: SessionDep, user: AuthDep):
     session.exec(
         delete(PositionDB).where(PositionDB.email_address == user.email_address)
     )
+    session.exec(
+        update(PortfolioDB)
+        .where(PortfolioDB.email_address == user.email_address)
+        .values(buy_power=1000) # TODO: do not hardcode this
+    )
     session.commit()
     return {"message": "Positions cleaned"}
 
@@ -52,9 +57,9 @@ async def enter_position(enter_pos: Position, session: SessionDep, user: AuthDep
         raise HTTPException(
             status_code=400, detail="Amount must be greater than 0 to enter position"
         )
-    elif enter_pos.order_type not in [0, 1]:
+    elif enter_pos.order_type not in [1, -1]:
         raise HTTPException(
-            status_code=400, detail="Order type must be 0 (buy) or 1 (sell)"
+            status_code=400, detail="Order type must be 1 (buy) or -1 (sell)"
         )
     elif enter_pos.ticker == "":
         raise HTTPException(status_code=400, detail="Ticker must not be empty")
@@ -113,9 +118,9 @@ async def exit_position(exit_pos: Position, session: SessionDep, user: AuthDep):
         raise HTTPException(
             status_code=400, detail="Amount must be greater than 0 to exit position"
         )
-    elif exit_pos.order_type not in [0, 1]:
+    elif exit_pos.order_type not in [1, -1]:
         raise HTTPException(
-            status_code=400, detail="Order type must be 0 (buy) or 1 (sell)"
+            status_code=400, detail="Order type must be 1 (buy) or -1 (sell)"
         )
     elif exit_pos.ticker == "":
         raise HTTPException(status_code=400, detail="Ticker must not be empty")

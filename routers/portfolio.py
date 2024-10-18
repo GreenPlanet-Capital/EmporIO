@@ -15,7 +15,7 @@ portfolio_router = APIRouter(prefix="/portfolio")
 @portfolio_router.get("")
 async def get_portfolio(session: SessionDep, user: AuthDep):
     u_port = UpdatePort(global_db)
-    u_port.execute()
+    u_port.execute(email_address=user.email_address)
     portfolio: PortfolioDB = session.get(PortfolioDB, user.email_address)
     portfolio.history = [HistoryDB(**hist) for hist in portfolio.history]
 
