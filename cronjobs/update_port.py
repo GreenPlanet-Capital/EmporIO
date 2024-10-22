@@ -14,7 +14,7 @@ class UpdatePort:
     def __init__(self, db: SqlDB):
         self.db = db
 
-    def execute(self, email_address: str | None) -> None:
+    def execute(self, email_address: str | None = None) -> None:
         print("Updating portfolio")
         session = next(self.db.get_session())
 
