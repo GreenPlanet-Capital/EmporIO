@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import List, Tuple
+from typing import List
 from sqlmodel import JSON, Column, SQLModel, Field
 
 
@@ -55,3 +54,8 @@ class UserDB(SQLModel, table=True):
 class TokenDB(SQLModel, table=True):
     email_address: str = Field(primary_key=True)
     token: str
+
+
+class CryptoOrderConfDB(SQLModel, table=True):
+    uid: str = Field(primary_key=True)
+    confirmed: bool

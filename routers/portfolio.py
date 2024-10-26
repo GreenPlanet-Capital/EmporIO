@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
 import pytz
 from cronjobs.update_port import UpdatePort
